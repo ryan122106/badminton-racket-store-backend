@@ -12,9 +12,14 @@ import com.example.racketbackend.repositories.PaymentRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.racketbackend.dto.AdminPaymentResponse;
+import java.util.List;
 
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+
+
+import java.util.List;
 
 @Service
 public class PaymentService {
@@ -34,39 +39,59 @@ public class PaymentService {
     }
 
     public ResponseEntity<Object> getPayments() {
-
-        return ResponseEntity.ok(
+        List<AdminPaymentResponse> payments =
                 paymentRepository.findAll()
-        );
+                        .stream()
+                        .map(this::toAdminPaymentResponse)
+                        .toList();
+
+        return ResponseEntity.ok(payments);
     }
 
-    public ResponseEntity<Object> getPaymentByOrderId(
-            Integer orderId
-    ) {
+    public ResponseEntity<Object> getPaymentByOrderId(Integer orderId) {
+        List<AdminPaymentResponse> payments =
+                paymentRepository.findByOrderId(orderId)
+                        .stream()
+                        .map(this::toAdminPaymentResponse)
+                        .toList();
 
-        return ResponseEntity.ok(
-                paymentRepository.findByOrderId(
-                        orderId
-                )
-        );
+        return ResponseEntity.ok(payments);
     }
 
-    public ResponseEntity<Object> getPaymentById(
-            Integer id
-    ) {
-
+    public ResponseEntity<Object> getPaymentById(Integer id) {
         Payment payment =
-                paymentRepository
-                        .findById(id)
-                        .orElse(null);
+                paymentRepository.findById(id).orElse(null);
 
         if (payment == null) {
-
-            return ResponseEntity.status(404)
-                    .body("Payment not found");
+            return ResponseEntity.status(404).body("Payment not found");
         }
 
-        return ResponseEntity.ok(payment);
+        return ResponseEntity.ok(toAdminPaymentResponse(payment));
+    }
+
+    private AdminPaymentResponse toAdminPaymentResponse(Payment payment) {
+        Order order = null;
+
+        if (payment.getOrderId() != null) {
+            order = orderRepository
+                    .findById(payment.getOrderId())
+                    .orElse(null);
+        }
+
+        return new AdminPaymentResponse(
+                payment.getId(),
+                payment.getOrderId(),
+                payment.getAmount(),
+                payment.getPaymentMethod(),
+                payment.getPaymentStatus() == null
+                        ? null
+                        : payment.getPaymentStatus().name(),
+                payment.getPaymentDate(),
+                payment.getCardLastFour(),
+                order == null ? null : order.getPickupLocation(),
+                order == null ? null : order.getPickupDate(),
+                order == null ? null : order.getPickupCode()
+        );
     }
 
     @Transactional
